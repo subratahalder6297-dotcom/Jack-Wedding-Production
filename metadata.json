@@ -1,0 +1,8 @@
+{
+  "name": "Jack Production Storage",
+  "description": "A secure and elegant private storage portal for Jack Wedding Production, featuring password-protected folders and seamless Google Drive integration.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}
