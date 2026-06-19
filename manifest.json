@@ -1,0 +1,21 @@
+
+{
+  "short_name": "Jack Prod",
+  "name": "Jack Production Storage",
+  "icons": [
+    {
+      "src": "https://images.lucidapp.com/v1/assets/95316492-c840-410a-8a3d-4e9415712534/original.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://images.lucidapp.com/v1/assets/95316492-c840-410a-8a3d-4e9415712534/original.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#C5A059",
+  "background_color": "#0F172A"
+}

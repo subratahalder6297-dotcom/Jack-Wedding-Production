@@ -3,7 +3,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Jack Prod" />
+    <meta name="theme-color" content="#C5A059" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="https://images.lucidapp.com/v1/assets/95316492-c840-410a-8a3d-4e9415712534/original.png" />
+    
     <title>Jack Production Storage</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -34,6 +41,8 @@
       body {
         font-family: 'Inter', sans-serif;
         transition: background-color 0.5s ease, color 0.5s ease;
+        -webkit-tap-highlight-color: transparent;
+        overscroll-behavior-y: contain; /* Prevents pull-to-refresh on mobile */
       }
       .font-serif {
         font-family: 'Playfair Display', serif;
@@ -89,14 +98,6 @@
         animation: rollDown 8s ease-in-out infinite;
       }
 
-      @keyframes safe-pulse {
-        0%, 100% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.4)); }
-        50% { transform: scale(1.1); filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.7)); }
-      }
-      .safe-vault-indicator {
-        animation: safe-pulse 2s ease-in-out infinite;
-      }
-
       @keyframes peekAndRun {
         0% { transform: translateX(100%); opacity: 0; }
         10% { transform: translateX(0%); opacity: 1; }
@@ -113,9 +114,9 @@
       }
       .photographer-boy {
         position: fixed;
-        bottom: 10%;
+        bottom: 12%;
         right: 0;
-        width: 280px;
+        width: 200px;
         z-index: 60;
         pointer-events: none;
         animation: peekAndRun 12s ease-in-out infinite;
@@ -128,13 +129,15 @@
         pointer-events: none;
         animation: flash-effect 12s linear infinite;
       }
-
-      .colorful-card-shadow {
-        box-shadow: 0 10px 30px -10px rgba(197, 160, 89, 0.2), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-      }
       
       .hide-scrollbar::-webkit-scrollbar { display: none; }
       .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+      /* Mobile Safe Area Padding */
+      #root {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
     </style>
   <script type="importmap">
 {
@@ -147,8 +150,10 @@
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-main-gradient dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-amber-100 selection:text-amber-900 overflow-x-hidden">
     <div id="root"></div>
-  </body>
+  <script type="module" src="/index.tsx"></script>
+</body>
 </html>
