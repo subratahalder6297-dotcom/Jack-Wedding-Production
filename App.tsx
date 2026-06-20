@@ -9,10 +9,11 @@ import {
 } from 'lucide-react';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { Folder, GDriveFile, ViewMode, Review } from './types';
-import { getFolders, saveFolders, getReviews, saveReviews } from './lib/storage';
+import { getFolders, saveFolders, getReviews, saveReviews, deleteFolder } from './lib/storage';
 import { LogoComponent, CONTACT_INFO, CHARACTER_IMAGE_URL, SERVICES, SERVICE_OFFERINGS, REVIEWS as INITIAL_REVIEWS } from './constants';
 import { Button } from './components/Button';
 import { FolderCard } from './components/FolderCard';
+import { EditFolderModal } from './components/EditFolderModal';
 import { generateFolderDescription } from './services/geminiService';
 
 // --- App Navigation State ---
@@ -88,6 +89,104 @@ const FallingLenses = () => {
   );
 };
 
+// --- Seed Folders Data ---
+const SEED_FOLDERS: Folder[] = [
+  {
+    id: "seed-1",
+    name: "Roy & Sen Pre-Wedding",
+    description: "Dreamy cinematic captures at Victoria Memorial and Hooghly Ghats. Custom gold tones and fine grain.",
+    password: "1234",
+    thumbnail: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=600&auto=format&fit=crop",
+    teaserVideoUrl: "https://www.w3schools.com/html/mov_bbb.mp4",
+    weddingDate: "October 14, 2026",
+    venue: "Victoria Memorial, Kolkata",
+    progressStatus: "100% Delivered",
+    serviceType: "Pre-Wedding Shoots",
+    createdAt: Date.now() - 172800000,
+    isLocked: true,
+    isSample: false,
+    files: [
+      {
+        id: "file-1-1",
+        name: "Morning Walk Cinematic Teaser",
+        url: "https://www.w3schools.com/html/mov_bbb.mp4",
+        type: "video",
+        addedAt: Date.now() - 172800000,
+        collection: "Trailer",
+        duration: "01:24",
+        quality: "4K"
+      },
+      {
+        id: "file-1-2",
+        name: "Victoria Memorial High-Res Portrait Cover",
+        url: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=1200&auto=format&fit=crop",
+        type: "image",
+        addedAt: Date.now() - 172800000,
+        collection: "Reels"
+      }
+    ]
+  },
+  {
+    id: "seed-2",
+    name: "Mehta Wedding Gala",
+    description: "Complete cinematic wedding production containing three days of gorgeous, high-end celebrations.",
+    password: "jack",
+    thumbnail: "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=600&auto=format&fit=crop",
+    teaserVideoUrl: "https://www.w3schools.com/html/movie.mp4",
+    weddingDate: "November 21, 2026",
+    venue: "ITC Royal Bengal",
+    progressStatus: "Editing (Highlight Film)",
+    serviceType: "Wedding Shoots",
+    createdAt: Date.now() - 86400000,
+    isLocked: true,
+    isSample: false,
+    files: [
+      {
+        id: "file-2-1",
+        name: "Wedding Highlights Reel",
+        url: "https://www.w3schools.com/html/movie.mp4",
+        type: "video",
+        addedAt: Date.now() - 86400000,
+        collection: "Full Video",
+        duration: "04:12",
+        quality: "4K UHD"
+      },
+      {
+        id: "file-2-2",
+        name: "Sangeet Group Photo",
+        url: "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=1200&auto=format&fit=crop",
+        type: "image",
+        addedAt: Date.now() - 43200000,
+        collection: "Reels"
+      }
+    ]
+  },
+  {
+    id: "seed-3",
+    name: "Aarav First Birthday Film",
+    description: "Cute and playful portrait film of toddler celebrations under premium studio lighting.",
+    thumbnail: "https://images.unsplash.com/photo-1510076857177-7470076d4098?q=80&w=600&auto=format&fit=crop",
+    weddingDate: "February 12, 2026",
+    venue: "Studio 4",
+    serviceType: "Baby Photoshoot",
+    createdAt: Date.now(),
+    isLocked: false,
+    isSample: true,
+    files: [
+      {
+        id: "file-3-1",
+        name: "Smash academic cake - Reel cut",
+        url: "https://www.w3schools.com/html/mov_bbb.mp4",
+        type: "video",
+        addedAt: Date.now(),
+        collection: "Social Content",
+        duration: "00:45",
+        quality: "HD"
+      }
+    ]
+  }
+];
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppTab>('home');
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -102,11 +201,18 @@ const App: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState<Record<string, boolean>>({});
   const [newReview, setNewReview] = useState({ name: '', text: '', stars: 5 });
+  const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
+
+  // Custom password unlock modal state
+  const [unlockingFolderId, setUnlockingFolderId] = useState<string | null>(null);
+  const [unlockPassword, setUnlockPassword] = useState('');
+  const [unlockError, setUnlockError] = useState<string | null>(null);
 
   // Form states
   const [fName, setFName] = useState('');
   const [fPass, setFPass] = useState('');
   const [fThumb, setFThumb] = useState('');
+  const [fTeaser, setFTeaser] = useState('');
   const [fService, setFService] = useState('');
   const [fIsSample, setFIsSample] = useState(false);
   const [fDescription, setFDescription] = useState('');
@@ -129,21 +235,30 @@ const App: React.FC = () => {
   const audioSourcesRef = useRef(new Set<AudioBufferSourceNode>());
 
   useEffect(() => {
-    setFolders(getFolders());
-    const storedReviews = getReviews();
-    if (storedReviews.length === 0) {
-      const mappedInitial = INITIAL_REVIEWS.map((r, i) => ({
-        id: `initial-${i}`,
-        name: r.name,
-        text: r.text,
-        stars: r.stars,
-        date: Date.now() - (i * 86400000)
-      }));
-      setReviews(mappedInitial);
-      saveReviews(mappedInitial);
-    } else {
-      setReviews(storedReviews);
+    async function loadData() {
+      let initialFolders = await getFolders();
+      if (initialFolders.length === 0) {
+        initialFolders = SEED_FOLDERS;
+        await saveFolders(SEED_FOLDERS);
+      }
+      setFolders(initialFolders);
+
+      let storedReviews = await getReviews();
+      if (storedReviews.length === 0) {
+        const mappedInitial = INITIAL_REVIEWS.map((r, i) => ({
+          id: `initial-${i}`,
+          name: r.name,
+          text: r.text,
+          stars: r.stars,
+          date: Date.now() - (i * 86400000)
+        }));
+        setReviews(mappedInitial);
+        await saveReviews(mappedInitial);
+      } else {
+        setReviews(storedReviews);
+      }
     }
+    loadData();
 
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -151,9 +266,6 @@ const App: React.FC = () => {
       document.documentElement.classList.add('dark');
     }
   }, []);
-
-  useEffect(() => { saveFolders(folders); }, [folders]);
-  useEffect(() => { saveReviews(reviews); }, [reviews]);
 
   const toggleDarkMode = () => {
     const nextMode = !isDarkMode;
@@ -163,8 +275,29 @@ const App: React.FC = () => {
   };
 
   const resetFolderForm = () => {
-    setFName(''); setFPass(''); setFThumb(''); setFService(''); setFIsSample(false); setFDescription('');
+    setFName(''); setFPass(''); setFThumb(''); setFTeaser(''); setFService(''); setFIsSample(false); setFDescription('');
     setCreationStep(1);
+  };
+
+  const handleDeleteFolder = (id: string) => {
+    setFolderToDelete(id);
+  };
+
+  const confirmDeleteFolder = async () => {
+    if (!folderToDelete) return;
+    const id = folderToDelete;
+    const newFolders = folders.filter(f => f.id !== id);
+    setFolders(newFolders);
+    setFolderToDelete(null);
+    try {
+      await deleteFolder(id);
+    } catch (err) {
+      console.error("Failed to delete folder from database", err);
+    }
+  };
+
+  const handleEditFolder = (folder: Folder) => {
+    setIsEditingFolder(folder);
   };
 
   const handleUnlockFolder = (id: string) => {
@@ -174,11 +307,26 @@ const App: React.FC = () => {
       setActiveFolderId(id);
       return;
     }
-    const entered = prompt('Enter the archive access password:');
-    if (entered === folder.password) {
-      setIsUnlocked(prev => ({ ...prev, [id]: true }));
-      setActiveFolderId(id);
-    } else if (entered !== null) alert('Access Denied: Invalid Key.');
+    // Launch of custom, sandboxed-iFrame friendly unlock dialog
+    setUnlockingFolderId(id);
+    setUnlockPassword('');
+    setUnlockError(null);
+  };
+
+  const submitUnlockPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!unlockingFolderId) return;
+    const folder = folders.find(f => f.id === unlockingFolderId);
+    if (!folder) return;
+    if (unlockPassword === folder.password) {
+      setIsUnlocked(prev => ({ ...prev, [unlockingFolderId]: true }));
+      setActiveFolderId(unlockingFolderId);
+      setUnlockingFolderId(null);
+      setUnlockPassword('');
+      setUnlockError(null);
+    } else {
+      setUnlockError('Access Denied: Invalid passcode.');
+    }
   };
 
   const handleStartTranscription = async () => {
@@ -339,34 +487,141 @@ const App: React.FC = () => {
       {/* Main App Content Viewport */}
       <main className="flex-1 overflow-y-auto hide-scrollbar relative pb-24">
         {activeFolderId ? (
-          /* Sub-view: Folder Assets */
-          <div className="animate-in slide-in-from-right duration-300 p-6">
-             <button className="flex items-center gap-2 mb-6 text-slate-400 text-[10px] font-black uppercase tracking-widest" onClick={() => setActiveFolderId(null)}>
-                <ChevronLeft size={16} /> Back to Vault
-             </button>
-             <div className="mb-10">
-                <h2 className="font-serif text-4xl font-bold italic tracking-tight mb-2">{activeFolder?.name}</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed italic">{activeFolder?.description}</p>
-             </div>
-             
-             <div className="space-y-4">
-                {activeFolder?.files.map(f => (
-                   <div key={f.id} className="p-5 bg-white/50 dark:bg-slate-900/50 backdrop-blur rounded-[2rem] border border-white dark:border-slate-800 flex items-center justify-between group active:scale-[0.98] transition-all">
-                      <div className="flex items-center gap-4">
-                         <div className="p-4 bg-gold-50 dark:bg-slate-800 rounded-2xl text-gold-500">
-                            {f.type === 'video' ? <Video size={20}/> : <ImageIcon size={20}/>}
-                         </div>
-                         <div>
-                            <h4 className="font-bold text-sm tracking-tight">{f.name}</h4>
-                            <span className="text-[9px] font-black uppercase text-slate-400">Ready for Playback</span>
-                         </div>
-                      </div>
-                      <button onClick={() => window.open(f.url, '_blank')} className="p-3 text-indigo-500 bg-indigo-50 dark:bg-slate-800 rounded-xl">
-                         <ExternalLink size={18} />
-                      </button>
+          /* Sub-view: Vault Collections */
+          <div className="animate-in slide-in-from-right duration-500 pb-20 relative">
+            <button className="absolute top-6 left-6 z-50 flex items-center gap-2 p-3 bg-black/30 backdrop-blur-md rounded-2xl text-white text-[10px] font-black uppercase tracking-widest hover:bg-black/50 transition-all border border-white/10 shadow-xl" onClick={() => setActiveFolderId(null)}>
+              <ChevronLeft size={16} /> Jack Vault
+            </button>
+            
+            {/* Hero Section */}
+            <div className="relative h-[65vh] w-full bg-slate-900 overflow-hidden rounded-b-[3rem] shadow-2xl">
+              {(() => {
+                const teaserUrl = activeFolder?.teaserVideoUrl;
+                const isThumbVideo = activeFolder?.thumbnail?.endsWith('.mp4') || activeFolder?.thumbnail?.endsWith('.webm');
+                const firstVideo = activeFolder?.files?.find((f: any) => f.type === 'video');
+                const mediaUrl = teaserUrl || (isThumbVideo ? activeFolder?.thumbnail : undefined) || firstVideo?.url;
+
+                if (mediaUrl) {
+                  return (
+                    <video 
+                      src={mediaUrl}
+                      className="absolute inset-0 w-full h-full object-cover opacity-80"
+                      autoPlay muted loop playsInline 
+                    />
+                  );
+                }
+                
+                if (activeFolder?.thumbnail) {
+                  return (
+                    <img 
+                      src={activeFolder.thumbnail} 
+                      className="absolute inset-0 w-full h-full object-cover opacity-80" 
+                    />
+                  );
+                }
+                
+                return null;
+              })()}
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/60 to-transparent flex flex-col justify-end p-8">
+                <h2 className="font-serif text-5xl font-bold text-white mb-2 leading-none drop-shadow-lg">{activeFolder?.name}</h2>
+                <p className="text-gold-300 font-serif text-2xl italic drop-shadow-md mb-6">Wedding Archive</p>
+                
+                <div className="flex flex-col items-start gap-3 text-sm font-medium text-slate-200">
+                   {activeFolder?.weddingDate && (
+                     <div className="flex items-center gap-3">
+                       <Calendar size={16} className="text-gold-400" /> 
+                       <span>{activeFolder.weddingDate}</span>
+                     </div>
+                   )}
+                   {activeFolder?.venue && (
+                     <div className="flex items-center gap-3">
+                       <MapPin size={16} className="text-gold-400" /> 
+                       <span>{activeFolder.venue}</span>
+                     </div>
+                   )}
+                   {activeFolder?.progressStatus && (
+                     <div className="flex items-center gap-3">
+                       <Check size={16} className="text-emerald-400" /> 
+                       <span>{activeFolder.progressStatus}</span>
+                     </div>
+                   )}
+                   <div className="flex items-center gap-3">
+                      <Clapperboard size={16} className="text-gold-400" /> 
+                      <span>{activeFolder?.files?.length || 0} Assets Available</span>
                    </div>
-                ))}
-             </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Content Sections */}
+            <div className="p-6 space-y-12 mt-4">
+
+              {/* Group files by Collection (Timeline) */}
+              {(() => {
+                const collections = activeFolder?.files?.reduce((acc, file) => {
+                  const colName = file.collection || (file.type === 'video' ? 'Full Video' : 'Reels');
+                  if (!acc[colName]) acc[colName] = [];
+                  acc[colName].push(file);
+                  return acc;
+                }, {} as Record<string, GDriveFile[]>);
+
+                if (!collections) return null;
+                const entries = Object.entries(collections);
+
+                return (
+                  <div className="relative pl-6 md:pl-10 space-y-12 before:absolute before:inset-y-0 before:left-[11px] md:before:left-[27px] before:w-0.5 before:bg-gradient-to-b before:from-gold-600/50 before:via-gold-300/30 before:to-transparent">
+                    {entries.map(([colName, files], index) => (
+                      <div key={colName} className="relative">
+                        {/* Timeline Node */}
+                        <div className="absolute -left-[30px] md:-left-[46px] top-2 w-4 h-4 rounded-full bg-gold-100 dark:bg-gold-900 border-2 border-gold-500 shadow-[0_0_10px_rgba(197,160,89,0.5)] z-10" />
+                        
+                        <h3 className="font-serif text-3xl font-bold italic tracking-tight flex items-center gap-3 mb-6 relative">
+                          {colName} 
+                          <span className="text-xs font-sans not-italic bg-slate-100 dark:bg-slate-800 text-slate-500 px-3 py-1 rounded-full">{files.length}</span>
+                        </h3>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          {files.map(f => (
+                            <div key={f.id} className="p-4 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group overflow-hidden">
+                              <div className="flex items-start gap-4 mb-4">
+                                 <div className="w-16 h-16 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 overflow-hidden shrink-0 relative">
+                                   {f.type === 'video' ? (
+                                      <div className="bg-gold-50 dark:bg-gold-900/20 text-gold-500 w-full h-full flex items-center justify-center"><Video size={20} /></div>
+                                   ) : f.type === 'image' ? (
+                                      <img src={f.thumbnail || f.url} className="absolute inset-0 w-full h-full object-cover" />
+                                   ) : (
+                                      <FileText size={20} />
+                                   )}
+                                 </div>
+                                 <div className="flex-1 min-w-0 pt-1">
+                                    <h4 className="font-bold text-sm tracking-tight truncate text-slate-800 dark:text-slate-200">{f.name}</h4>
+                                    <div className="flex gap-2 mt-2">
+                                       {f.duration && (
+                                         <span className="text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-1 rounded-lg">{f.duration}</span>
+                                       )}
+                                       {f.quality && (
+                                         <span className="text-[10px] font-black uppercase bg-gold-50 dark:bg-gold-900/30 text-gold-600 px-2 py-1 rounded-lg border border-gold-200 dark:border-gold-800">{f.quality}</span>
+                                       )}
+                                    </div>
+                                 </div>
+                              </div>
+                              
+                              <div className="flex gap-2 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
+                                 <button onClick={() => window.open(f.url, '_blank')} className="flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all">
+                                   <Layout size={14} /> View
+                                 </button>
+                                 <button className="flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all">
+                                   <ChevronRight size={14} /> Download
+                                 </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         ) : (
           /* Main Tab Views */
@@ -395,7 +650,7 @@ const App: React.FC = () => {
                   </div>
                   <div className="grid grid-cols-1 gap-6">
                     {clientFolders.map(folder => (
-                      <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onOpen={handleUnlockFolder} />
+                      <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onOpen={handleUnlockFolder} isUnlocked={isUnlocked[folder.id]} onEdit={handleEditFolder} onDelete={handleDeleteFolder} />
                     ))}
                     {clientFolders.length === 0 && (
                       <div className="py-20 text-center text-slate-400 bg-slate-50/50 dark:bg-slate-900/30 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800">
@@ -416,7 +671,7 @@ const App: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-1 gap-8">
                   {sampleFolders.map(folder => (
-                    <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onOpen={handleUnlockFolder} />
+                    <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onOpen={handleUnlockFolder} isUnlocked={isUnlocked[folder.id]} onEdit={handleEditFolder} onDelete={handleDeleteFolder} />
                   ))}
                 </div>
                 <div className="mt-12 space-y-4">
@@ -518,7 +773,15 @@ const App: React.FC = () => {
                   ))}
                 </div>
 
-                <form onSubmit={(e) => { e.preventDefault(); if(newReview.text) { setReviews([{...newReview, id: Date.now().toString(), date: Date.now()}, ...reviews]); setNewReview({name:'', text:'', stars:5}); } }} className="p-8 bg-slate-900 dark:bg-black rounded-[3rem] text-white space-y-6">
+                <form onSubmit={async (e) => { 
+                  e.preventDefault(); 
+                  if(newReview.text) { 
+                    const updatedReviews = [{...newReview, id: Date.now().toString(), date: Date.now()}, ...reviews];
+                    setReviews(updatedReviews); 
+                    await saveReviews(updatedReviews);
+                    setNewReview({name:'', text:'', stars:5}); 
+                  } 
+                }} className="p-8 bg-slate-900 dark:bg-black rounded-[3rem] text-white space-y-6">
                    <h4 className="font-serif text-xl italic font-bold">Leave a Testimony</h4>
                    <input 
                      placeholder="Your Name" className="w-full px-5 py-3 rounded-xl bg-white/10 border-none text-xs" 
@@ -566,11 +829,19 @@ const App: React.FC = () => {
          ))}
       </nav>
 
-      {/* Photographer Character Overlay */}
-      <div className="photographer-boy scale-75 md:scale-100 opacity-80 pointer-events-none">
-        <img src={CHARACTER_IMAGE_URL} alt="Photographer" className="w-full drop-shadow-2xl" />
-      </div>
-      <div className="camera-flash"></div>
+      {/* Delete Folder Modal */}
+      {folderToDelete && (
+        <div className="fixed inset-0 z-[100] bg-slate-950/65 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-t-[3.5rem] sm:rounded-[3.5rem] w-full max-w-sm shadow-2xl p-8 border border-slate-100 dark:border-slate-800 animate-in slide-in-from-bottom duration-300 relative text-center">
+            <h3 className="font-serif text-2xl font-bold italic tracking-tight mb-4 text-slate-900 dark:text-white">Delete Archive?</h3>
+            <p className="text-sm text-slate-500 mb-8">This action cannot be undone. Are you sure you want to permanently delete this archive?</p>
+            <div className="flex gap-4">
+              <Button variant="secondary" className="flex-1 rounded-2xl" onClick={() => setFolderToDelete(null)}>Cancel</Button>
+              <Button variant="danger" className="flex-1 rounded-2xl border border-rose-200 dark:border-rose-900/50" onClick={confirmDeleteFolder}>Delete</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Admin Folder Deploy Sheet (Bottom Sheet Style) */}
       {isCreatingFolder && (
@@ -603,6 +874,10 @@ const App: React.FC = () => {
                        <label className="text-[10px] font-black uppercase text-gold-600 ml-2">Thumbnail URL</label>
                        <input className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none font-bold" value={fThumb} onChange={e => setFThumb(e.target.value)} placeholder="Image link..." />
                     </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-gold-600 ml-2">Teaser Video URL</label>
+                       <input className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none font-bold" value={fTeaser} onChange={e => setFTeaser(e.target.value)} placeholder="Video link..." />
+                    </div>
                     <Button variant="gold" className="w-full h-14 rounded-2xl" onClick={async () => {
                       setIsAiGenerating(true);
                       const desc = await generateFolderDescription(fName);
@@ -620,15 +895,103 @@ const App: React.FC = () => {
                       </div>
                       <h4 className="font-serif text-2xl font-bold italic">Vault Synchronized</h4>
                       <p className="text-sm text-slate-500 px-6">"{fDescription}"</p>
-                      <Button variant="gold" className="w-full h-14 rounded-2xl" onClick={() => {
-                        const newF: Folder = { id: Date.now().toString(), name: fName, password: fPass, thumbnail: fThumb, description: fDescription, files: [], createdAt: Date.now(), isLocked: !!fPass };
-                        setFolders([newF, ...folders]);
+                      <Button variant="gold" className="w-full h-14 rounded-2xl" onClick={async () => {
+                        const newF: Folder = { id: Date.now().toString(), name: fName, password: fPass, thumbnail: fThumb, teaserVideoUrl: fTeaser, description: fDescription, files: [], createdAt: Date.now(), isLocked: !!fPass, isSample: fIsSample };
+                        const updatedFolders = [newF, ...folders];
+                        setFolders(updatedFolders);
+                        await saveFolders(updatedFolders);
                         setIsCreatingFolder(false);
                         resetFolderForm();
                       }}>Finish Deployment</Button>
                    </div>
                 )}
              </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Folder Modal */}
+      {isEditingFolder && (
+        <EditFolderModal
+          folder={isEditingFolder}
+          onClose={() => setIsEditingFolder(null)}
+          onSave={async (updatedFolder) => {
+            const newFolders = folders.map(f => f.id === updatedFolder.id ? updatedFolder : f);
+            setFolders(newFolders);
+            try {
+              await saveFolders(newFolders);
+            } catch (err) {
+              console.error("Failed to save edited folder", err);
+            }
+            setIsEditingFolder(null);
+          }}
+        />
+      )}
+
+      {/* Brand Custom Key Unlock Modal Sheet */}
+      {unlockingFolderId && (
+        <div className="fixed inset-0 z-[101] bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md shadow-2xl p-8 border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 duration-300 relative">
+            <button 
+              onClick={() => setUnlockingFolderId(null)} 
+              className="absolute top-6 right-6 p-2 text-slate-400 hover:text-rose-500 transition-colors"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="text-center space-y-4 mb-6">
+              <div className="w-16 h-16 bg-amber-50 dark:bg-amber-950/20 rounded-2xl flex items-center justify-center mx-auto text-gold-500">
+                <Lock size={28} />
+              </div>
+              <h3 className="font-serif text-2xl font-bold italic tracking-tight">Private Vault</h3>
+              <p className="text-xs text-slate-400 dark:text-slate-500 leading-normal px-4">
+                This archive is secured. Please provide the client passcode to unlock.
+              </p>
+              {(() => {
+                const folder = folders.find(f => f.id === unlockingFolderId);
+                return folder && folder.password ? (
+                  <p className="text-[10px] font-mono text-gold-600 bg-gold-50 dark:bg-amber-950/20 px-3 py-1.5 rounded-xl inline-block mt-1">
+                    Demo Passcode Key: <span className="font-bold">{folder.password}</span>
+                  </p>
+                ) : null;
+              })()}
+            </div>
+
+            <form onSubmit={submitUnlockPassword} className="space-y-4">
+              <div className="space-y-1">
+                <input 
+                  type="password" 
+                  placeholder="Enter Passcode..." 
+                  className="w-full px-5 py-4 rounded-xl bg-slate-50 dark:bg-slate-800 border-none font-bold text-center text-sm outline-none focus:ring-2 focus:ring-gold-500/50 transition-all dark:text-slate-50 text-slate-950"
+                  value={unlockPassword} 
+                  autoFocus
+                  onChange={e => {
+                    setUnlockPassword(e.target.value);
+                    if (unlockError) setUnlockError(null);
+                  }} 
+                />
+              </div>
+
+              {unlockError && (
+                <p className="text-xs text-rose-500 font-bold text-center animate-bounce">{unlockError}</p>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setUnlockingFolderId(null)}
+                  className="flex-1 py-3 px-4 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-transform"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 py-3 px-4 rounded-xl text-xs font-bold bg-gold-gradient text-white hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-gold-500/20"
+                >
+                  Submit Key
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

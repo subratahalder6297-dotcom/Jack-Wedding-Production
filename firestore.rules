@@ -1,0 +1,48 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isValidId(id) {
+       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // Validation for Review
+    function isValidReview(data) {
+       return data.keys().hasAll(['id', 'name', 'text', 'stars', 'date']) &&
+              data.id is string && data.name is string && data.text is string &&
+              data.stars is number && data.date is number &&
+              data.name.size() <= 100 && data.text.size() <= 1000;
+    }
+
+    // Validation for Folder
+    function isValidFolder(data) {
+       return data.keys().hasAll(['id', 'name', 'createdAt', 'isLocked', 'isSample']) &&
+              data.id is string && data.name is string && 
+              data.createdAt is number && data.isLocked is bool && data.isSample is bool &&
+              data.name.size() <= 100;
+    }
+
+    match /folders/{folderId} {
+      // Allowing public read and write since there's no auth system yet
+      allow read: if true;
+      allow create: if isValidFolder(incoming()) && isValidId(folderId);
+      allow update: if isValidFolder(incoming()) && isValidId(folderId);
+      allow delete: if true;
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isValidReview(incoming()) && isValidId(reviewId);
+      allow update: if isValidReview(incoming()) && isValidId(reviewId);
+      allow delete: if true;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

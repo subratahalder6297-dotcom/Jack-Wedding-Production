@@ -1,0 +1,69 @@
+{
+  "entities": {
+    "GDriveFile": {
+      "title": "GDriveFile",
+      "description": "File object in folder array",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "type": { "type": "string", "enum": ["video", "image", "document", "other"] },
+        "addedAt": { "type": "number" },
+        "collection": { "type": "string" },
+        "duration": { "type": "string" },
+        "quality": { "type": "string" },
+        "thumbnail": { "type": "string" }
+      },
+      "required": ["id", "name", "url", "type", "addedAt"]
+    },
+    "Folder": {
+      "title": "Folder",
+      "description": "Represents a client's wedding archive folder",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "password": { "type": "string" },
+        "thumbnail": { "type": "string" },
+        "teaserVideoUrl": { "type": "string" },
+        "weddingDate": { "type": "string" },
+        "venue": { "type": "string" },
+        "progressStatus": { "type": "string" },
+        "files": {
+          "type": "array",
+          "items": { "$ref": "GDriveFile" }
+        },
+        "createdAt": { "type": "number" },
+        "isLocked": { "type": "boolean" },
+        "isSample": { "type": "boolean" },
+        "serviceType": { "type": "string" }
+      },
+      "required": ["id", "name", "createdAt", "isLocked", "isSample"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "A client review",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "text": { "type": "string" },
+        "stars": { "type": "number" },
+        "date": { "type": "number" }
+      },
+      "required": ["id", "name", "text", "stars", "date"]
+    }
+  },
+  "firestore": {
+    "folders/{folderId}": {
+      "schema": { "$ref": "Folder" },
+      "description": "Stores all client folders. Admin can read/write. Clients can read."
+    },
+    "reviews/{reviewId}": {
+      "schema": { "$ref": "Review" },
+      "description": "Stores client reviews. Public read. Public write for now or Auth."
+    }
+  }
+}

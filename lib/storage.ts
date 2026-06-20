@@ -1,23 +1,30 @@
 
 import { Folder, Review } from '../types';
+import { db } from './firebase';
+import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
-const FOLDER_KEY = 'jack_production_storage_folders';
-const REVIEW_KEY = 'jack_production_storage_reviews';
-
-export const saveFolders = (folders: Folder[]) => {
-  localStorage.setItem(FOLDER_KEY, JSON.stringify(folders));
+export const saveFolders = async (folders: Folder[]) => {
+  for (const folder of folders) {
+    await setDoc(doc(collection(db, 'folders'), folder.id), folder);
+  }
 };
 
-export const getFolders = (): Folder[] => {
-  const data = localStorage.getItem(FOLDER_KEY);
-  return data ? JSON.parse(data) : [];
+export const deleteFolder = async (id: string) => {
+  await deleteDoc(doc(db, 'folders', id));
 };
 
-export const saveReviews = (reviews: Review[]) => {
-  localStorage.setItem(REVIEW_KEY, JSON.stringify(reviews));
+export const getFolders = async (): Promise<Folder[]> => {
+  const querySnapshot = await getDocs(collection(db, 'folders'));
+  return querySnapshot.docs.map(doc => doc.data() as Folder);
 };
 
-export const getReviews = (): Review[] => {
-  const data = localStorage.getItem(REVIEW_KEY);
-  return data ? JSON.parse(data) : [];
+export const saveReviews = async (reviews: Review[]) => {
+  for (const review of reviews) {
+    await setDoc(doc(collection(db, 'reviews'), review.id), review);
+  }
+};
+
+export const getReviews = async (): Promise<Review[]> => {
+  const querySnapshot = await getDocs(collection(db, 'reviews'));
+  return querySnapshot.docs.map(doc => doc.data() as Review);
 };

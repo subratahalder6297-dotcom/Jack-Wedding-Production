@@ -5,6 +5,10 @@ export interface GDriveFile {
   url: string;
   type: 'video' | 'image' | 'document' | 'other';
   addedAt: number;
+  collection?: string;
+  duration?: string;
+  quality?: string;
+  thumbnail?: string;
 }
 
 export interface Review {
@@ -21,6 +25,10 @@ export interface Folder {
   description?: string;
   password?: string;
   thumbnail?: string; 
+  teaserVideoUrl?: string;
+  weddingDate?: string;
+  venue?: string;
+  progressStatus?: string;
   files: GDriveFile[];
   createdAt: number;
   isLocked: boolean;

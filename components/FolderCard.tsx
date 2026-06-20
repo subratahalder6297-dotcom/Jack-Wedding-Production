@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Folder } from '../types';
-import { Folder as FolderIcon, Lock, ExternalLink, Settings, Trash2, Camera, Edit3 } from 'lucide-react';
+import { Folder as FolderIcon, Lock, ExternalLink, Settings, Trash2, Camera, Edit3, ShieldCheck } from 'lucide-react';
 import { Button } from './Button';
 
 interface FolderCardProps {
@@ -10,10 +10,11 @@ interface FolderCardProps {
   onOpen: (id: string) => void;
   onDelete?: (id: string) => void;
   onEdit?: (folder: Folder) => void;
+  isUnlocked?: boolean;
 }
 
-export const FolderCard: React.FC<FolderCardProps> = ({ folder, viewMode, onOpen, onDelete, onEdit }) => {
-  const isLocked = !!folder.password;
+export const FolderCard: React.FC<FolderCardProps> = ({ folder, viewMode, onOpen, onDelete, onEdit, isUnlocked }) => {
+  const isLocked = !isUnlocked && !!folder.password;
 
   return (
     <div className="group relative bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 hover:border-gold-300 dark:hover:border-gold-600 transition-all duration-500 overflow-hidden hover:shadow-[0_40px_80px_rgba(197,160,89,0.25)] hover:-translate-y-3">
@@ -84,12 +85,17 @@ export const FolderCard: React.FC<FolderCardProps> = ({ folder, viewMode, onOpen
                 {folder.files.length} ASSETS READY
              </span>
           </div>
-          {isLocked && (
+          {isLocked ? (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 dark:bg-rose-950/30 rounded-lg text-rose-500 border border-rose-100 dark:border-rose-900/50 shadow-sm">
               <Lock size={14} />
               <span className="text-[10px] font-black uppercase tracking-widest">Secured</span>
             </div>
-          )}
+          ) : folder.password ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg text-emerald-500 border border-emerald-100 dark:border-emerald-900/50 shadow-sm">
+              <ShieldCheck size={14} />
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 font-bold">Unlocked</span>
+            </div>
+          ) : null}
         </div>
 
         <h3 className="font-serif text-3xl font-bold text-slate-800 dark:text-slate-100 truncate mb-4 italic">
